@@ -7,8 +7,7 @@ import (
 
 func main() {
 	srcPath, dstPath := config.Load()
+	// service.Create(srcPath, 10000000)
 	share := service.New(srcPath, dstPath)
 	share.Read();
-	
-
 }

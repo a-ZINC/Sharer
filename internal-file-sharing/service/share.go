@@ -5,17 +5,19 @@ import (
 	"io"
 	"log"
 	"os"
+	"time"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 type ShareService struct {
 	src             string
 	dest            string
 	total           int
-	LoadingProgress int
 }
 
 func New(src, dest string, args ...int) *ShareService {
-	total := 1024 * 1024
+	total := 1024
 	if len(args) > 0 {
 		total = args[0]
 	}
@@ -46,11 +48,33 @@ func (s *ShareService) Read() {
 		log.Fatal("Source file is empty")
 	}
 
-	destFile, err := os.Create(s.dest)
+	var copiedSize int64 = 0
+	if destStats, err := os.Stat(s.dest); err == nil {
+		copiedSize = destStats.Size()
+		if copiedSize >= size {
+			log.Printf("✅ File already fully copied!, skipping %s copy", s.src)
+			return
+		}
+	}
+
+	destFile, err := os.OpenFile(s.dest, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer destFile.Close()
+
+	_, err = srcFile.Seek(copiedSize, io.SeekStart)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = destFile.Seek(copiedSize, io.SeekStart)
+	if err != nil {
+		log.Fatal(err)
+	}
+	bar := progressbar.DefaultBytes(
+		size-copiedSize,
+		"Copying...",
+	)
 
 	for {
 		n, err := srcFile.Read(buffer)
@@ -61,7 +85,7 @@ func (s *ShareService) Read() {
 			log.Fatal(err)
 		}
 		destFile.Write(buffer[:n])
-		s.LoadingProgress += n
-		log.Printf("Loading progress: %d/%d", s.LoadingProgress, size)
+		bar.Add(n)
+		time.Sleep(time.Millisecond * 1)
 	}
 }
